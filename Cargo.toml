@@ -1,0 +1,10 @@
+[package]
+name = "haproxy"
+version = "0.1.0"
+authors = ["ubuntu"]
+
+[dependencies]
+docopt = "*"
+libc = "0.1.8"
+rustc-serialize = "*"
+fileinput = "*"
