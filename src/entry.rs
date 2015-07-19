@@ -1,11 +1,46 @@
-use slicer::Slicer;
+use std::fmt;
+use std::result;
+use std::str;
+use std::str::Utf8Error;
+use std::num::ParseIntError;
+use slicer::{Slicer,SliceError};
 
 #[derive(Debug)]
-pub enum ParserError {
-    ParseError,
+pub enum Error {
+    SliceError(SliceError),
+    Utf8Error(Utf8Error),
+    IntError(ParseIntError),
 }
 
-pub type ParseResult<T> = Result<T, ParserError>;
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            Error::SliceError(ref err) => write!(f, "could not parse log entry: {}", err),
+            Error::Utf8Error(ref err) => write!(f, "invalid utf8: {}", err),
+            Error::IntError(ref err) => write!(f, "could not decode integer: {}", err),
+        }
+    }
+}
+
+impl From<SliceError> for Error {
+    fn from(err: SliceError) -> Error {
+        Error::SliceError(err)
+    }
+}
+
+impl From<Utf8Error> for Error {
+    fn from(err: Utf8Error) -> Error {
+        Error::Utf8Error(err)
+    }
+}
+
+impl From<ParseIntError> for Error {
+    fn from(err: ParseIntError) -> Error {
+        Error::IntError(err)
+    }
+}
+
+pub type Result<T> = result::Result<T, Error>;
 
 pub struct LogEntry<'a> {
     pub process_name: &'a [u8],
@@ -38,7 +73,7 @@ pub struct LogEntry<'a> {
 }
 
 impl<'a> LogEntry<'a> {
-    pub fn from_bytes(buf: &[u8]) -> ParseResult<LogEntry> {
+    pub fn from_bytes(buf: &[u8]) -> Result<LogEntry> {
         let mut slicer = Slicer::new(buf);
 
         let process_name = try!(slicer.slice_to(b'['));
@@ -131,6 +166,23 @@ impl<'a> LogEntry<'a> {
             http_request: http_request,
         })
     }
+
+    pub fn process_name(&self) -> Result<&'a str> {
+        Ok(try!(str::from_utf8(self.process_name)))
+    }
+
+    pub fn pid(&self) -> Result<u64> {
+        let utf8_pid = try!(str::from_utf8(self.pid));
+        Ok(try!(utf8_pid.parse()))
+    }
+
+    //pub fn client_ip(&self) -> Result<IpAddr, AddrParseError> {
+        //IpAddr::from_str(self.client_ip)
+    //}
+
+    //pub fn client_port(&self) -> Result<u16, ParseIntError> {
+        //self.client_port.parse()
+    //}
 
     pub fn http_method(&self) -> Option<&'a [u8]> {
         self.http_request.split(|&c| c == b' ').nth(0)

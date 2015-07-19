@@ -1,5 +1,22 @@
-// TODO: clean up these errors.
-use entry::{ParseResult,ParserError};
+use std::fmt;
+use std::result;
+
+#[derive(Debug)]
+pub enum SliceError {
+    ExpectedToken(u8),
+    UnexpectedTokens,
+}
+
+impl fmt::Display for SliceError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            SliceError::ExpectedToken(token) => write!(f, "expected '{}'", token),
+            SliceError::UnexpectedTokens => write!(f, "unexpected tokens"),
+        }
+    }
+}
+
+pub type Result<T> = result::Result<T, SliceError>;
 
 pub struct Slicer<'a> {
     buffer: &'a [u8],
@@ -12,7 +29,7 @@ impl<'a> Slicer<'a> {
         }
     }
 
-    pub fn slice_to(&mut self, delim: u8) -> ParseResult<&'a [u8]> {
+    pub fn slice_to(&mut self, delim: u8) -> Result<&'a [u8]> {
         // local benchmarks show this raw for loop is more performant in parsing whole haproxy log
         // lines (~290ns/iter) than .iter().position() (~340 ns/iter), or memchr (~320 ns/iter).
         for i in 0..self.buffer.len() {
@@ -23,7 +40,7 @@ impl<'a> Slicer<'a> {
             }
         }
 
-        Err(ParserError::ParseError)
+        Err(SliceError::ExpectedToken(delim))
     }
 
     pub fn slice_to_or_remainder(&mut self, delim: u8) -> &'a [u8] {
@@ -37,9 +54,9 @@ impl<'a> Slicer<'a> {
         }
     }
 
-    pub fn discard(&mut self, s: &[u8]) -> ParseResult<()> {
+    pub fn discard(&mut self, s: &[u8]) -> Result<()> {
         if !self.buffer.starts_with(s) {
-            return Err(ParserError::ParseError)
+            return Err(SliceError::UnexpectedTokens)
         }
 
         self.buffer = &self.buffer[s.len()..];
