@@ -3,7 +3,8 @@ use std::result;
 use std::str;
 use std::str::Utf8Error;
 use std::num::ParseIntError;
-use slicer::{Slicer,SliceError};
+
+use crate::slicer::{Slicer,SliceError};
 
 #[derive(Debug)]
 pub enum Error {
@@ -76,43 +77,43 @@ impl<'a> LogEntry<'a> {
     pub fn from_bytes(buf: &[u8]) -> Result<LogEntry> {
         let mut slicer = Slicer::new(buf);
 
-        let process_name = try!(slicer.slice_to(b'['));
-        let pid = try!(slicer.slice_to(b']'));
-        try!(slicer.discard(b": "));
+        let process_name = slicer.slice_to(b'[')?;
+        let pid = slicer.slice_to(b']')?;
+        slicer.discard(b": ")?;
 
-        let client_ip = try!(slicer.slice_to(b':'));
-        let client_port = try!(slicer.slice_to(b' '));
+        let client_ip = slicer.slice_to(b':')?;
+        let client_port = slicer.slice_to(b' ')?;
 
-        try!(slicer.discard(b"["));
-        let accept_date = try!(slicer.slice_to(b']'));
-        try!(slicer.discard(b" "));
+        slicer.discard(b"[")?;
+        let accept_date = slicer.slice_to(b']')?;
+        slicer.discard(b" ")?;
 
-        let frontend_name = try!(slicer.slice_to(b' '));
-        let backend_name = try!(slicer.slice_to(b'/'));
-        let server_name = try!(slicer.slice_to(b' '));
+        let frontend_name = slicer.slice_to(b' ')?;
+        let backend_name = slicer.slice_to(b'/')?;
+        let server_name = slicer.slice_to(b' ')?;
 
-        let time_request = try!(slicer.slice_to(b'/'));
-        let time_queue = try!(slicer.slice_to(b'/'));
-        let time_connect = try!(slicer.slice_to(b'/'));
-        let time_response = try!(slicer.slice_to(b'/'));
-        let time_total = try!(slicer.slice_to(b' '));
+        let time_request = slicer.slice_to(b'/')?;
+        let time_queue = slicer.slice_to(b'/')?;
+        let time_connect = slicer.slice_to(b'/')?;
+        let time_response = slicer.slice_to(b'/')?;
+        let time_total = slicer.slice_to(b' ')?;
 
-        let status_code = try!(slicer.slice_to(b' '));
-        let bytes_read = try!(slicer.slice_to(b' '));
+        let status_code = slicer.slice_to(b' ')?;
+        let bytes_read = slicer.slice_to(b' ')?;
 
-        let captured_request_cookie = try!(slicer.slice_to(b' '));
-        let captured_response_cookie = try!(slicer.slice_to(b' '));
+        let captured_request_cookie = slicer.slice_to(b' ')?;
+        let captured_response_cookie = slicer.slice_to(b' ')?;
 
-        let termination_state = try!(slicer.slice_to(b' '));
+        let termination_state = slicer.slice_to(b' ')?;
 
-        let connections_active = try!(slicer.slice_to(b'/'));
-        let connections_frontend = try!(slicer.slice_to(b'/'));
-        let connections_backend = try!(slicer.slice_to(b'/'));
-        let connections_server = try!(slicer.slice_to(b'/'));
-        let connections_retried = try!(slicer.slice_to(b' '));
+        let connections_active = slicer.slice_to(b'/')?;
+        let connections_frontend = slicer.slice_to(b'/')?;
+        let connections_backend = slicer.slice_to(b'/')?;
+        let connections_server = slicer.slice_to(b'/')?;
+        let connections_retried = slicer.slice_to(b' ')?;
 
-        let server_queue = try!(slicer.slice_to(b'/'));
-        let backend_queue = try!(slicer.slice_to(b' '));
+        let server_queue = slicer.slice_to(b'/')?;
+        let backend_queue = slicer.slice_to(b' ')?;
 
         // haproxy logs can contain two blocks of captured headers if it was configured to do so;
         // one for request headers and one for response headers. the log format is identical for
@@ -126,14 +127,14 @@ impl<'a> LogEntry<'a> {
             let curly_discard_result = slicer.discard(b"{");
 
             if curly_discard_result.is_ok() {
-                captures[i] = try!(slicer.slice_to(b'}'));
-                try!(slicer.discard(b" "));
+                captures[i] = slicer.slice_to(b'}')?;
+                slicer.discard(b" ")?;
             } else {
                 break;
             }
         }
 
-        try!(slicer.discard(b"\""));
+        slicer.discard(b"\"")?;
         let http_request = slicer.slice_to_or_remainder(b'"');
 
         Ok(LogEntry {
@@ -168,12 +169,12 @@ impl<'a> LogEntry<'a> {
     }
 
     pub fn process_name(&self) -> Result<&'a str> {
-        Ok(try!(str::from_utf8(self.process_name)))
+        Ok(str::from_utf8(self.process_name)?)
     }
 
     pub fn pid(&self) -> Result<u64> {
-        let utf8_pid = try!(str::from_utf8(self.pid));
-        Ok(try!(utf8_pid.parse()))
+        let utf8_pid = str::from_utf8(self.pid)?;
+        Ok(utf8_pid.parse()?)
     }
 
     //pub fn client_ip(&self) -> Result<IpAddr, AddrParseError> {

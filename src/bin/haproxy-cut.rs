@@ -1,9 +1,3 @@
-extern crate fileinput;
-extern crate docopt;
-extern crate haproxy;
-extern crate libc;
-extern crate rustc_serialize;
-
 use docopt::Docopt;
 use fileinput::FileInput;
 use libc::consts::os::posix88::STDOUT_FILENO;
@@ -230,8 +224,8 @@ impl Field {
                     }
 
                     let parse_result: Result<Vec<usize>, ParseIntError> = field
-                        .trim_left_matches("captured_header[")
-                        .trim_right_matches(']')
+                        .trim_start_matches("captured_header[")
+                        .trim_end_matches(']')
                         .split("][")
                         .map(|s| s.parse())
                         .collect();
@@ -303,12 +297,12 @@ struct Fields {
 
 impl rustc_serialize::Decodable for Fields {
     fn decode<D: rustc_serialize::Decoder>(d: &mut D) -> Result<Fields, D::Error> {
-        let field_names = try!(d.read_str());
+        let field_names = d.read_str()?;
 
         let mut fields = vec![];
         if !field_names.is_empty() {
             for field_name in field_names.split(",") {
-                let field = try!(Field::decode(field_name).map_err(|e| d.error(&*e)));
+                let field = Field::decode(field_name).map_err(|e| d.error(&*e))?;
                 fields.push(field)
             }
         }
@@ -336,8 +330,7 @@ struct Args {
 }
 
 fn main() {
-    let docopt = Docopt::new(USAGE).unwrap();
-    let args: Args = docopt.decode().unwrap_or_else(|e| e.exit());
+    let args: Args = Docopt::new(USAGE).and_then(|d| d.decode()).unwrap_or_else(|e| e.exit());
 
     if args.flag_help_fields {
         println!("{}", FIELDS);
